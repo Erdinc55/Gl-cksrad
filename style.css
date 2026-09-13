@@ -30,7 +30,6 @@ body {
   white-space: nowrap;
 }
 
-/* ---------- Seitenaufbau ---------- */
 
 .seite {
   max-width: 1060px;
@@ -48,12 +47,10 @@ body {
     gap: 34px;
     padding-top: 24px;
   }
-  /* Auf dem Handy zuerst das Rad, danach die Bedienung */
   .rad-spalte { order: 1; }
   .seiten-spalte { order: 2; }
 }
 
-/* ---------- Kopf ---------- */
 
 .kopf { margin-bottom: 30px; }
 
@@ -78,7 +75,6 @@ h1 {
   h1 { font-size: 36px; }
 }
 
-/* ---------- Rad ---------- */
 
 .rad-spalte {
   position: sticky;
@@ -193,7 +189,6 @@ h1 {
   color: var(--graphit);
 }
 
-/* ---------- Blöcke ---------- */
 
 .block {
   border-top: 1px solid var(--haarlinie);
@@ -208,7 +203,6 @@ h1 {
   margin: 0 0 14px;
 }
 
-/* ---------- Eingabe ---------- */
 
 .eingabe-zeile {
   display: flex;
@@ -262,7 +256,6 @@ textarea { resize: vertical; margin-bottom: 8px; }
 
 .mehrzeilig summary:hover { color: var(--tinte); }
 
-/* ---------- Chips ---------- */
 
 .chips {
   list-style: none;
@@ -334,7 +327,6 @@ textarea { resize: vertical; margin-bottom: 8px; }
 .knopf-text:hover { color: var(--tinte); border-color: var(--tinte); }
 .knopf-text.warnung:hover { color: var(--warn); border-color: var(--warn); }
 
-/* ---------- Auswertung ---------- */
 
 .zaehler {
   margin: 0 0 12px;
@@ -381,7 +373,6 @@ textarea { resize: vertical; margin-bottom: 8px; }
   max-width: 44ch;
 }
 
-/* ---------- Verlauf ---------- */
 
 .verlauf {
   list-style: none;
@@ -406,7 +397,6 @@ textarea { resize: vertical; margin-bottom: 8px; }
 .verlauf .name { color: var(--tinte); }
 .verlauf-leer { color: var(--graphit); font-size: 13px; }
 
-/* ---------- Zugänglichkeit ---------- */
 
 :focus-visible {
   outline: 2px solid var(--signal);
