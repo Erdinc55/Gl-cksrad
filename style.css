@@ -1,0 +1,419 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --papier: #f0f1ee;
+  --tinte: #1b2021;
+  --graphit: #5c6663;
+  --haarlinie: #d5d8d2;
+  --signal: #2f5d50;
+  --warn: #9c4221;
+  --flaeche: #f7f8f5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--tinte);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.versteckt {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Seitenaufbau ---------- */
+
+.seite {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 36px 22px 70px;
+  display: grid;
+  gap: 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  align-items: start;
+}
+
+@media (max-width: 880px) {
+  .seite {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+    padding-top: 24px;
+  }
+  /* Auf dem Handy zuerst das Rad, danach die Bedienung */
+  .rad-spalte { order: 1; }
+  .seiten-spalte { order: 2; }
+}
+
+/* ---------- Kopf ---------- */
+
+.kopf { margin-bottom: 30px; }
+
+h1 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.unterzeile {
+  margin: 0;
+  color: var(--graphit);
+  font-size: 14px;
+  max-width: 34ch;
+}
+
+@media (max-width: 880px) {
+  .kopf { margin-bottom: 22px; }
+  h1 { font-size: 36px; }
+}
+
+/* ---------- Rad ---------- */
+
+.rad-spalte {
+  position: sticky;
+  top: 28px;
+}
+
+@media (max-width: 880px) {
+  .rad-spalte { position: static; }
+}
+
+.rad-huelle {
+  position: relative;
+  width: 100%;
+  max-width: 470px;
+  margin: 0 auto;
+}
+
+#rad {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+#segmente {
+  transform-origin: 200px 200px;
+  transition: transform 4.2s cubic-bezier(0.16, 0.9, 0.2, 1);
+}
+
+#erwartungskreis {
+  stroke: var(--graphit);
+  opacity: 0.45;
+}
+
+.nabe {
+  fill: var(--papier);
+  stroke: var(--tinte);
+  stroke-width: 1.5;
+}
+
+.segment {
+  stroke: var(--papier);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+.segment.gewinner {
+  filter: brightness(1.12) saturate(1.25);
+}
+
+#segmente.dimmen .segment:not(.gewinner) { opacity: 0.32; }
+
+.segment-text {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 500;
+  fill: #ffffff;
+  pointer-events: none;
+  paint-order: stroke;
+}
+
+.zeiger {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 21px solid var(--signal);
+}
+
+.ergebnis {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 30px;
+  line-height: 1.2;
+  text-align: center;
+  margin: 20px 0 16px;
+  min-height: 1.2em;
+  color: var(--tinte);
+}
+
+.ergebnis.leer {
+  font-style: italic;
+  font-size: 20px;
+  color: var(--graphit);
+}
+
+.dreh-knopf {
+  display: block;
+  margin: 0 auto;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--papier);
+  background: var(--signal);
+  border: none;
+  border-radius: 2px;
+  padding: 13px 42px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dreh-knopf:hover:not(:disabled) { background: #234840; }
+.dreh-knopf:disabled { opacity: 0.4; cursor: default; }
+
+.rad-hinweis {
+  max-width: 40ch;
+  margin: 18px auto 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--graphit);
+}
+
+/* ---------- Blöcke ---------- */
+
+.block {
+  border-top: 1px solid var(--haarlinie);
+  padding-top: 18px;
+  margin-bottom: 30px;
+}
+
+.block h2 {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+/* ---------- Eingabe ---------- */
+
+.eingabe-zeile {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+input[type="text"], textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--tinte);
+  background: var(--flaeche);
+  border: 1px solid var(--haarlinie);
+  border-radius: 2px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+input[type="text"]:focus, textarea:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+textarea { resize: vertical; margin-bottom: 8px; }
+
+.knopf-klein {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tinte);
+  background: transparent;
+  border: 1px solid var(--tinte);
+  border-radius: 2px;
+  padding: 9px 15px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.knopf-klein:hover { background: var(--tinte); color: var(--papier); }
+
+.mehrzeilig { margin-bottom: 14px; }
+
+.mehrzeilig summary {
+  font-size: 13px;
+  color: var(--graphit);
+  cursor: pointer;
+  padding: 4px 0 8px;
+}
+
+.mehrzeilig summary:hover { color: var(--tinte); }
+
+/* ---------- Chips ---------- */
+
+.chips {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  background: var(--flaeche);
+  border: 1px solid var(--haarlinie);
+  border-radius: 2px;
+  padding: 5px 5px 5px 9px;
+  max-width: 100%;
+}
+
+.chip-punkt {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+}
+
+.chip-weg {
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--graphit);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.chip-weg:hover { color: var(--warn); }
+
+.listen-fuss {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--graphit);
+}
+
+.knopf-text {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--graphit);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--haarlinie);
+  cursor: pointer;
+  padding: 1px 0;
+}
+
+.knopf-text:hover { color: var(--tinte); border-color: var(--tinte); }
+.knopf-text.warnung:hover { color: var(--warn); border-color: var(--warn); }
+
+/* ---------- Auswertung ---------- */
+
+.zaehler {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--graphit);
+}
+
+.tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.tabelle th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--graphit);
+  border-bottom: 1px solid var(--haarlinie);
+  padding: 0 8px 6px 0;
+}
+
+.tabelle th:not(:first-child),
+.tabelle td:not(:first-child) { text-align: right; padding-right: 0; }
+
+.tabelle td {
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid var(--haarlinie);
+}
+
+.tabelle tbody tr:last-child td { border-bottom: none; }
+
+.zell-name { display: flex; align-items: center; gap: 7px; }
+
+.abweichung.plus { color: var(--signal); }
+.abweichung.minus { color: var(--warn); }
+
+.tabelle:empty, .tabelle.leer { display: none; }
+
+.erklaerung {
+  margin: 0;
+  font-size: 13px;
+  color: var(--graphit);
+  max-width: 44ch;
+}
+
+/* ---------- Verlauf ---------- */
+
+.verlauf {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  max-height: 176px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.verlauf li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--haarlinie);
+  color: var(--graphit);
+}
+
+.verlauf li:last-child { border-bottom: none; }
+.verlauf .nummer { color: var(--haarlinie); min-width: 22px; }
+.verlauf .name { color: var(--tinte); }
+.verlauf-leer { color: var(--graphit); font-size: 13px; }
+
+/* ---------- Zugänglichkeit ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #segmente { transition-duration: 0.45s; }
+  .segment { transition: none; }
+}

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blüte — ein Rad, das sich merkt, was es zieht</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main class="seite">
+
+  <!-- ---------- Das Rad ---------- -->
+  <section class="rad-spalte">
+
+    <div class="rad-huelle">
+      <svg id="rad" viewBox="0 0 400 400" role="img" aria-labelledby="rad-titel">
+        <title id="rad-titel">Glücksrad. Jedes Segment wächst nach außen, je öfter es gezogen wurde.</title>
+
+        <!-- Erwartungskreis: hier läge jedes Segment bei perfekt gleichmäßiger Verteilung -->
+        <circle id="erwartungskreis" cx="200" cy="200" r="124"
+                fill="none" stroke-dasharray="3 5" />
+
+        <!-- Die Segmente werden von script.js hier eingesetzt -->
+        <g id="segmente"></g>
+
+        <!-- Nabe in der Mitte -->
+        <circle cx="200" cy="200" r="17" class="nabe" />
+      </svg>
+
+      <!-- Zeiger, sitzt außerhalb des Rades und dreht sich nicht mit -->
+      <div class="zeiger" aria-hidden="true"></div>
+    </div>
+
+    <p class="ergebnis" id="ergebnis" aria-live="polite">Noch nicht gedreht</p>
+
+    <button class="dreh-knopf" id="drehen" type="button">Drehen</button>
+
+    <p class="rad-hinweis">
+      Alle Segmente sind gleich breit und damit gleich wahrscheinlich.
+      Nach außen wächst nur die Anzeige, nicht die Chance.
+    </p>
+
+  </section>
+
+  <!-- ---------- Bedienung und Zahlen ---------- -->
+  <section class="seiten-spalte">
+
+    <header class="kopf">
+      <h1>Blüte</h1>
+      <p class="unterzeile">
+        Ein Entscheidungsrad, das seine eigene Zufälligkeit mitzeichnet.
+      </p>
+    </header>
+
+    <!-- Optionen -->
+    <section class="block">
+      <h2>Optionen</h2>
+
+      <div class="eingabe-zeile">
+        <label class="versteckt" for="feld-einzeln">Neue Option</label>
+        <input type="text" id="feld-einzeln" placeholder="Option eintippen, Enter drücken"
+               autocomplete="off" maxlength="60">
+        <button type="button" id="hinzufuegen" class="knopf-klein">Hinzufügen</button>
+      </div>
+
+      <details class="mehrzeilig">
+        <summary>Mehrere auf einmal einfügen</summary>
+        <label class="versteckt" for="feld-mehrere">Mehrere Optionen, eine pro Zeile</label>
+        <textarea id="feld-mehrere" rows="4"
+                  placeholder="Eine Option pro Zeile"></textarea>
+        <button type="button" id="uebernehmen" class="knopf-klein">Alle übernehmen</button>
+      </details>
+
+      <ul class="chips" id="chips"></ul>
+
+      <div class="listen-fuss">
+        <span id="anzahl-optionen">0 Optionen</span>
+        <button type="button" id="alle-loeschen" class="knopf-text">Liste leeren</button>
+      </div>
+    </section>
+
+    <!-- Statistik -->
+    <section class="block">
+      <h2>Auswertung</h2>
+
+      <p class="zaehler" id="zaehler">Noch keine Drehs aufgezeichnet.</p>
+
+      <table class="tabelle" id="tabelle">
+        <thead>
+          <tr>
+            <th scope="col">Option</th>
+            <th scope="col">Gezogen</th>
+            <th scope="col">Anteil</th>
+            <th scope="col">Abweichung</th>
+          </tr>
+        </thead>
+        <tbody id="tabelle-koerper"></tbody>
+      </table>
+
+      <p class="erklaerung">
+        Der gestrichelte Kreis im Rad markiert den erwarteten Wert. Bei wenigen Drehs
+        zackt die Form stark darum herum — das ist normal und kein Fehler. Je öfter
+        du drehst, desto näher legt sich die Blüte an den Kreis an.
+      </p>
+    </section>
+
+    <!-- Verlauf -->
+    <section class="block">
+      <h2>Verlauf</h2>
+      <ol class="verlauf" id="verlauf"></ol>
+      <button type="button" id="zuruecksetzen" class="knopf-text warnung">
+        Auswertung zurücksetzen
+      </button>
+    </section>
+
+  </section>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

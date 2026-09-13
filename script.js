@@ -1,0 +1,492 @@
+/* ==========================================================================
+   Blüte — ein Glücksrad, das seine eigene Zufälligkeit mitzeichnet
+
+   Die Grundidee: Der WINKEL jedes Segments bleibt immer gleich groß.
+   Nur der RADIUS wächst, je öfter eine Option gezogen wurde.
+   Dadurch ist das Rad ein Histogramm, ohne unfair zu werden —
+   getroffen wird ein Segment nämlich nur über seinen Winkel.
+   ========================================================================== */
+
+/* ---------- Einstellungen zum Selberdrehen ---------- */
+
+const KONFIG = {
+  drehdauerMs: 4200,     // muss zur transition-duration in style.css passen
+  umdrehungen: 5,        // volle Runden vor dem Anhalten
+  radiusRef: 124,        // Radius des Erwartungskreises (SVG-Einheiten)
+  radiusMin: 46,         // so klein wird ein Segment höchstens
+  radiusMax: 178,        // so groß wird ein Segment höchstens
+  minWinkelFuerText: 12, // unter so vielen Grad zeigt das Segment nur eine Nummer
+  verlaufLaenge: 40
+};
+
+const MITTE = 200;               // Mittelpunkt im viewBox-Koordinatensystem
+const SPEICHER = "bluete-daten";
+
+/* ---------- Elemente ---------- */
+
+const svgSegmente   = document.getElementById("segmente");
+const elErgebnis    = document.getElementById("ergebnis");
+const elDrehen      = document.getElementById("drehen");
+const feldEinzeln   = document.getElementById("feld-einzeln");
+const feldMehrere   = document.getElementById("feld-mehrere");
+const elChips       = document.getElementById("chips");
+const elAnzahl      = document.getElementById("anzahl-optionen");
+const elZaehler     = document.getElementById("zaehler");
+const elTabelle     = document.getElementById("tabelle");
+const elTabKoerper  = document.getElementById("tabelle-koerper");
+const elVerlauf     = document.getElementById("verlauf");
+
+/* ---------- Zustand ---------- */
+
+let optionen = [];    // [{ id, name, treffer }]
+let verlauf  = [];    // [{ name, id }] — neuester zuerst
+let drehung  = 0;     // aktueller Drehwinkel des Rades in Grad
+let dreht    = false;
+let naechsteId = 1;
+
+/* ==========================================================================
+   Farben
+
+   Die Segmentfarben kommen nicht aus einer festen Liste, sondern werden
+   berechnet: Jede Option springt im Farbkreis um 137.5 Grad weiter —
+   den goldenen Winkel. Pflanzen ordnen ihre Blätter nach demselben Winkel
+   an, damit sie sich möglichst wenig überdecken. Bei Farben bewirkt das,
+   dass benachbarte Segmente immer weit auseinanderliegen, egal ob es drei
+   oder dreißig sind. Sättigung und Helligkeit bleiben fast konstant —
+   nur dadurch bleibt die Reihe harmonisch statt bonbonbunt.
+   ========================================================================== */
+
+function farbeFuer(index) {
+  const ton = (index * 137.5 + 18) % 360;
+  const saettigung = 52 + (index % 2) * 7;   // minimal alternierend
+  const helligkeit = 54 - (index % 3) * 3;
+  return `hsl(${ton.toFixed(1)} ${saettigung}% ${helligkeit}%)`;
+}
+
+/* ==========================================================================
+   Geometrie
+   ========================================================================== */
+
+// Wandelt einen Winkel (0 Grad = oben, im Uhrzeigersinn) in einen Punkt um.
+function punkt(winkelGrad, radius) {
+  const rad = (winkelGrad - 90) * Math.PI / 180;
+  return {
+    x: MITTE + radius * Math.cos(rad),
+    y: MITTE + radius * Math.sin(rad)
+  };
+}
+
+// Baut den Pfad für ein Segment: ein Kreisausschnitt zwischen Nabe und Außenkante.
+function segmentPfad(vonGrad, bisGrad, aussen) {
+  const innen = 17;
+  const grosserBogen = (bisGrad - vonGrad) > 180 ? 1 : 0;
+
+  const a = punkt(vonGrad, innen);
+  const b = punkt(vonGrad, aussen);
+  const c = punkt(bisGrad, aussen);
+  const d = punkt(bisGrad, innen);
+
+  return [
+    `M ${a.x.toFixed(2)} ${a.y.toFixed(2)}`,
+    `L ${b.x.toFixed(2)} ${b.y.toFixed(2)}`,
+    `A ${aussen} ${aussen} 0 ${grosserBogen} 1 ${c.x.toFixed(2)} ${c.y.toFixed(2)}`,
+    `L ${d.x.toFixed(2)} ${d.y.toFixed(2)}`,
+    `A ${innen} ${innen} 0 ${grosserBogen} 0 ${a.x.toFixed(2)} ${a.y.toFixed(2)}`,
+    "Z"
+  ].join(" ");
+}
+
+/* --------------------------------------------------------------------------
+   Der Radius einer Option
+
+   Erwartet wird bei n Optionen und g Drehs jeweils g/n Treffer.
+   Aus dem Verhältnis "tatsächlich zu erwartet" wird der Radius.
+
+   Die Wurzel dämpft das Wachstum: Eine Option mit viermal so vielen
+   Treffern wie erwartet ragt nur doppelt so weit hinaus, nicht viermal.
+   Ohne diese Dämpfung würde die Form bei vielen Drehs unlesbar entgleisen.
+   Die Rangfolge bleibt trotzdem eindeutig, weil die Wurzel die Reihenfolge
+   nicht verändert.
+   -------------------------------------------------------------------------- */
+
+function radiusFuer(treffer, gesamt, anzahlOptionen) {
+  if (gesamt === 0) return KONFIG.radiusRef;
+
+  const erwartet = gesamt / anzahlOptionen;
+  const verhaeltnis = treffer / erwartet;
+  const roh = KONFIG.radiusRef * Math.sqrt(verhaeltnis);
+
+  return Math.max(KONFIG.radiusMin, Math.min(KONFIG.radiusMax, roh));
+}
+
+/* ==========================================================================
+   Rad zeichnen
+   ========================================================================== */
+
+function radZeichnen() {
+  svgSegmente.innerHTML = "";
+  if (optionen.length === 0) return;
+
+  const n = optionen.length;
+  const schritt = 360 / n;
+  const gesamt = optionen.reduce((s, o) => s + o.treffer, 0);
+  const zeigtText = schritt >= KONFIG.minWinkelFuerText;
+
+  optionen.forEach((option, i) => {
+    const von = i * schritt;
+    const bis = von + schritt;
+    const aussen = radiusFuer(option.treffer, gesamt, n);
+
+    const pfad = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    pfad.setAttribute("d", segmentPfad(von, bis, aussen));
+    pfad.setAttribute("fill", farbeFuer(i));
+    pfad.setAttribute("class", "segment");
+    pfad.dataset.id = option.id;
+    svgSegmente.appendChild(pfad);
+
+    // Beschriftung
+    const mitteWinkel = von + schritt / 2;
+    const textRadius = (17 + aussen) / 2;
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    if (zeigtText) {
+      /* Wie viele Zeichen passen? Die Bogenlänge an dieser Stelle geteilt
+         durch die ungefähre Breite eines Zeichens. Lieber kürzen als
+         unlesbar quetschen. */
+      const bogen = (schritt * Math.PI / 180) * textRadius;
+      const maxZeichen = Math.max(3, Math.floor(bogen / 7.4));
+      const beschriftung = option.name.length > maxZeichen
+        ? option.name.slice(0, maxZeichen - 1) + "…"
+        : option.name;
+
+      text.textContent = beschriftung;
+      text.setAttribute("font-size", "12.5");
+    } else {
+      /* Zu schmal für Text. Unlesbar kleine Schrift wäre schlechter als
+         gar keine, deshalb steht hier nur die Nummer — sie stellt die
+         Verbindung zur Liste daneben her. */
+      text.textContent = String(i + 1);
+      text.setAttribute("font-size", "11");
+    }
+
+    const p = punkt(mitteWinkel, textRadius);
+    text.setAttribute("x", p.x.toFixed(2));
+    text.setAttribute("y", p.y.toFixed(2));
+    text.setAttribute("class", "segment-text");
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "central");
+
+    // Text mitdrehen, damit er im Segment liegt — und umklappen, wenn er
+    // sonst auf dem Kopf stünde.
+    const kippen = mitteWinkel > 180;
+    const drehWert = kippen ? mitteWinkel + 90 : mitteWinkel - 90;
+    text.setAttribute("transform", `rotate(${drehWert.toFixed(2)} ${p.x.toFixed(2)} ${p.y.toFixed(2)})`);
+
+    svgSegmente.appendChild(text);
+  });
+}
+
+/* ==========================================================================
+   Drehen
+
+   Wichtig für die Fairness: Zuerst wird der Gewinner gezogen, DANACH der
+   Winkel berechnet, der ihn unter den Zeiger bringt.
+
+   Der umgekehrte Weg — zu einem zufälligen Winkel drehen und ablesen, wer
+   gewonnen hat — sieht gleichwertig aus, ist es aber nicht: Rundungen und
+   ungleiche Segmentgrenzen verzerren dabei die Wahrscheinlichkeiten still
+   und leise. Hier ist die Ziehung sauber getrennt von der Darstellung.
+   ========================================================================== */
+
+function drehen() {
+  if (dreht || optionen.length < 2) return;
+  dreht = true;
+  elDrehen.disabled = true;
+  svgSegmente.classList.remove("dimmen");
+  svgSegmente.querySelectorAll(".gewinner").forEach(el => el.classList.remove("gewinner"));
+
+  // 1. Gewinner ziehen — jede Option hat exakt dieselbe Chance
+  const index = Math.floor(Math.random() * optionen.length);
+  const gewinner = optionen[index];
+
+  // 2. Winkel berechnen, der dieses Segment unter den Zeiger (oben) bringt
+  const schritt = 360 / optionen.length;
+  const mitteWinkel = index * schritt + schritt / 2;
+
+  // Kleiner Versatz innerhalb des Segments, damit es nicht immer exakt
+  // mittig stoppt. Bleibt bewusst innerhalb der Segmentgrenzen.
+  const versatz = (Math.random() - 0.5) * schritt * 0.7;
+
+  const zielRest = ((-(mitteWinkel + versatz)) % 360 + 360) % 360;
+  const basis = Math.ceil(drehung / 360) * 360;
+  let ziel = basis + KONFIG.umdrehungen * 360 + zielRest;
+  if (ziel <= drehung + 360) ziel += 360;
+
+  drehung = ziel;
+  svgSegmente.style.transform = `rotate(${drehung}deg)`;
+
+  // 3. Nach der Drehung auswerten
+  setTimeout(() => {
+    gewinner.treffer++;
+    verlauf.unshift({ name: gewinner.name, id: gewinner.id });
+    if (verlauf.length > KONFIG.verlaufLaenge) verlauf.pop();
+
+    elErgebnis.textContent = gewinner.name;
+    elErgebnis.classList.remove("leer");
+
+    radZeichnen();  // Segment wächst jetzt nach außen
+    hervorheben(gewinner.id);
+    statistikZeichnen();
+    verlaufZeichnen();
+    speichern();
+
+    dreht = false;
+    elDrehen.disabled = false;
+  }, KONFIG.drehdauerMs);
+}
+
+function hervorheben(id) {
+  const el = svgSegmente.querySelector(`.segment[data-id="${id}"]`);
+  if (!el) return;
+  el.classList.add("gewinner");
+  svgSegmente.classList.add("dimmen");
+}
+
+/* ==========================================================================
+   Optionen verwalten
+   ========================================================================== */
+
+function optionHinzufuegen(rohName) {
+  const name = rohName.trim().replace(/\s+/g, " ");
+  if (!name) return false;
+
+  // Doppelte Einträge stillschweigend überspringen
+  if (optionen.some(o => o.name.toLowerCase() === name.toLowerCase())) return false;
+
+  optionen.push({ id: naechsteId++, name, treffer: 0 });
+  return true;
+}
+
+function optionEntfernen(id) {
+  optionen = optionen.filter(o => o.id !== id);
+  verlauf = verlauf.filter(v => v.id !== id);
+  allesZeichnen();
+  speichern();
+}
+
+function einzelnUebernehmen() {
+  if (optionHinzufuegen(feldEinzeln.value)) {
+    feldEinzeln.value = "";
+    allesZeichnen();
+    speichern();
+  }
+  feldEinzeln.focus();
+}
+
+function mehrereUebernehmen() {
+  const zeilen = feldMehrere.value.split("\n");
+  let neu = 0;
+  zeilen.forEach(zeile => { if (optionHinzufuegen(zeile)) neu++; });
+  if (neu > 0) {
+    feldMehrere.value = "";
+    allesZeichnen();
+    speichern();
+  }
+}
+
+/* ==========================================================================
+   Anzeige
+   ========================================================================== */
+
+function chipsZeichnen() {
+  elChips.innerHTML = "";
+
+  optionen.forEach((option, i) => {
+    const li = document.createElement("li");
+
+    const punktEl = document.createElement("span");
+    punktEl.className = "chip-punkt";
+    punktEl.style.background = farbeFuer(i);
+
+    const text = document.createElement("span");
+    text.className = "chip-text";
+    text.textContent = `${i + 1}. ${option.name}`;
+    text.title = option.name;
+
+    const weg = document.createElement("button");
+    weg.type = "button";
+    weg.className = "chip-weg";
+    weg.textContent = "×";
+    weg.setAttribute("aria-label", `${option.name} entfernen`);
+    weg.addEventListener("click", () => optionEntfernen(option.id));
+
+    li.append(punktEl, text, weg);
+    elChips.appendChild(li);
+  });
+
+  elAnzahl.textContent = optionen.length === 1
+    ? "1 Option"
+    : `${optionen.length} Optionen`;
+
+  // Mit weniger als zwei Optionen gibt es nichts zu entscheiden
+  elDrehen.disabled = optionen.length < 2 || dreht;
+}
+
+function statistikZeichnen() {
+  const gesamt = optionen.reduce((s, o) => s + o.treffer, 0);
+
+  if (gesamt === 0) {
+    elZaehler.textContent = "Noch keine Drehs aufgezeichnet.";
+    elTabelle.classList.add("leer");
+    elTabKoerper.innerHTML = "";
+    return;
+  }
+
+  elTabelle.classList.remove("leer");
+  elZaehler.textContent = gesamt === 1
+    ? "1 Dreh aufgezeichnet."
+    : `${gesamt} Drehs aufgezeichnet.`;
+
+  const erwartetAnteil = 100 / optionen.length;
+  elTabKoerper.innerHTML = "";
+
+  optionen.forEach((option, i) => {
+    const anteil = (option.treffer / gesamt) * 100;
+    const abw = anteil - erwartetAnteil;
+
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    const wrap = document.createElement("span");
+    wrap.className = "zell-name";
+    const pkt = document.createElement("span");
+    pkt.className = "chip-punkt";
+    pkt.style.background = farbeFuer(i);
+    const nameText = document.createElement("span");
+    nameText.textContent = option.name;
+    wrap.append(pkt, nameText);
+    tdName.appendChild(wrap);
+
+    const tdTreffer = document.createElement("td");
+    tdTreffer.textContent = `${option.treffer} von ${gesamt}`;
+
+    const tdAnteil = document.createElement("td");
+    tdAnteil.textContent = anteil.toFixed(1) + " %";
+
+    const tdAbw = document.createElement("td");
+    tdAbw.className = "abweichung " + (abw >= 0 ? "plus" : "minus");
+    tdAbw.textContent = (abw >= 0 ? "+" : "") + abw.toFixed(1);
+
+    tr.append(tdName, tdTreffer, tdAnteil, tdAbw);
+    elTabKoerper.appendChild(tr);
+  });
+}
+
+function verlaufZeichnen() {
+  elVerlauf.innerHTML = "";
+
+  if (verlauf.length === 0) {
+    const p = document.createElement("li");
+    p.className = "verlauf-leer";
+    p.textContent = "Noch nichts gedreht.";
+    elVerlauf.appendChild(p);
+    return;
+  }
+
+  verlauf.forEach((eintrag, i) => {
+    const li = document.createElement("li");
+    const nr = document.createElement("span");
+    nr.className = "nummer";
+    nr.textContent = verlauf.length - i;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = eintrag.name;
+    li.append(nr, name);
+    elVerlauf.appendChild(li);
+  });
+}
+
+function allesZeichnen() {
+  radZeichnen();
+  chipsZeichnen();
+  statistikZeichnen();
+  verlaufZeichnen();
+}
+
+/* ==========================================================================
+   Speichern im Browser
+   ========================================================================== */
+
+function speichern() {
+  try {
+    localStorage.setItem(SPEICHER, JSON.stringify({ optionen, verlauf, naechsteId }));
+  } catch {
+    // Privates Fenster o. ä. — die Seite läuft trotzdem, nur ohne Gedächtnis
+  }
+}
+
+function laden() {
+  try {
+    const roh = localStorage.getItem(SPEICHER);
+    if (!roh) return false;
+    const daten = JSON.parse(roh);
+    if (!Array.isArray(daten.optionen) || daten.optionen.length === 0) return false;
+
+    optionen = daten.optionen;
+    verlauf = Array.isArray(daten.verlauf) ? daten.verlauf : [];
+    naechsteId = daten.naechsteId || optionen.length + 1;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function zuruecksetzen() {
+  const gesamt = optionen.reduce((s, o) => s + o.treffer, 0);
+  if (gesamt === 0) return;
+
+  const sicher = confirm(
+    `${gesamt} aufgezeichnete Drehs werden gelöscht. Die Optionen bleiben erhalten. Fortfahren?`
+  );
+  if (!sicher) return;
+
+  optionen.forEach(o => { o.treffer = 0; });
+  verlauf = [];
+  elErgebnis.textContent = "Noch nicht gedreht";
+  elErgebnis.classList.add("leer");
+  svgSegmente.classList.remove("dimmen");
+
+  allesZeichnen();   // die Blüte schrumpft sichtbar zurück in den Kreis
+  speichern();
+}
+
+/* ==========================================================================
+   Start
+   ========================================================================== */
+
+document.getElementById("hinzufuegen").addEventListener("click", einzelnUebernehmen);
+document.getElementById("uebernehmen").addEventListener("click", mehrereUebernehmen);
+document.getElementById("alle-loeschen").addEventListener("click", () => {
+  if (optionen.length === 0) return;
+  if (!confirm("Alle Optionen und die Auswertung löschen?")) return;
+  optionen = [];
+  verlauf = [];
+  elErgebnis.textContent = "Noch nicht gedreht";
+  elErgebnis.classList.add("leer");
+  allesZeichnen();
+  speichern();
+});
+document.getElementById("zuruecksetzen").addEventListener("click", zuruecksetzen);
+elDrehen.addEventListener("click", drehen);
+
+feldEinzeln.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); einzelnUebernehmen(); }
+});
+
+// Beim ersten Besuch ein paar neutrale Beispiele, damit die Seite nicht leer ist
+if (!laden()) {
+  ["Option A", "Option B", "Option C", "Option D"].forEach(n => optionHinzufuegen(n));
+}
+
+elErgebnis.classList.add("leer");
+allesZeichnen();
