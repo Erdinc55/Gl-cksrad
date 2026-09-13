@@ -1,28 +1,16 @@
-/* ==========================================================================
-   Blüte — ein Glücksrad, das seine eigene Zufälligkeit mitzeichnet
-
-   Die Grundidee: Der WINKEL jedes Segments bleibt immer gleich groß.
-   Nur der RADIUS wächst, je öfter eine Option gezogen wurde.
-   Dadurch ist das Rad ein Histogramm, ohne unfair zu werden —
-   getroffen wird ein Segment nämlich nur über seinen Winkel.
-   ========================================================================== */
-
-/* ---------- Einstellungen zum Selberdrehen ---------- */
-
 const KONFIG = {
-  drehdauerMs: 4200,     // muss zur transition-duration in style.css passen
-  umdrehungen: 5,        // volle Runden vor dem Anhalten
-  radiusRef: 124,        // Radius des Erwartungskreises (SVG-Einheiten)
-  radiusMin: 46,         // so klein wird ein Segment höchstens
-  radiusMax: 178,        // so groß wird ein Segment höchstens
-  minWinkelFuerText: 12, // unter so vielen Grad zeigt das Segment nur eine Nummer
+  drehdauerMs: 4200,
+  umdrehungen: 5,
+  radiusRef: 124,
+  radiusMin: 46,
+  radiusMax: 178,
+  minWinkelFuerText: 12,
   verlaufLaenge: 40
 };
 
-const MITTE = 200;               // Mittelpunkt im viewBox-Koordinatensystem
+const MITTE = 200;
 const SPEICHER = "bluete-daten";
 
-/* ---------- Elemente ---------- */
 
 const svgSegmente   = document.getElementById("segmente");
 const elErgebnis    = document.getElementById("ergebnis");
@@ -36,38 +24,20 @@ const elTabelle     = document.getElementById("tabelle");
 const elTabKoerper  = document.getElementById("tabelle-koerper");
 const elVerlauf     = document.getElementById("verlauf");
 
-/* ---------- Zustand ---------- */
 
-let optionen = [];    // [{ id, name, treffer }]
-let verlauf  = [];    // [{ name, id }] — neuester zuerst
-let drehung  = 0;     // aktueller Drehwinkel des Rades in Grad
+let optionen = [];
+let verlauf  = [];
+let drehung  = 0;
 let dreht    = false;
 let naechsteId = 1;
 
-/* ==========================================================================
-   Farben
-
-   Die Segmentfarben kommen nicht aus einer festen Liste, sondern werden
-   berechnet: Jede Option springt im Farbkreis um 137.5 Grad weiter —
-   den goldenen Winkel. Pflanzen ordnen ihre Blätter nach demselben Winkel
-   an, damit sie sich möglichst wenig überdecken. Bei Farben bewirkt das,
-   dass benachbarte Segmente immer weit auseinanderliegen, egal ob es drei
-   oder dreißig sind. Sättigung und Helligkeit bleiben fast konstant —
-   nur dadurch bleibt die Reihe harmonisch statt bonbonbunt.
-   ========================================================================== */
-
 function farbeFuer(index) {
   const ton = (index * 137.5 + 18) % 360;
-  const saettigung = 52 + (index % 2) * 7;   // minimal alternierend
+  const saettigung = 52 + (index % 2) * 7;
   const helligkeit = 54 - (index % 3) * 3;
   return `hsl(${ton.toFixed(1)} ${saettigung}% ${helligkeit}%)`;
 }
 
-/* ==========================================================================
-   Geometrie
-   ========================================================================== */
-
-// Wandelt einen Winkel (0 Grad = oben, im Uhrzeigersinn) in einen Punkt um.
 function punkt(winkelGrad, radius) {
   const rad = (winkelGrad - 90) * Math.PI / 180;
   return {
@@ -76,7 +46,6 @@ function punkt(winkelGrad, radius) {
   };
 }
 
-// Baut den Pfad für ein Segment: ein Kreisausschnitt zwischen Nabe und Außenkante.
 function segmentPfad(vonGrad, bisGrad, aussen) {
   const innen = 17;
   const grosserBogen = (bisGrad - vonGrad) > 180 ? 1 : 0;
@@ -96,19 +65,6 @@ function segmentPfad(vonGrad, bisGrad, aussen) {
   ].join(" ");
 }
 
-/* --------------------------------------------------------------------------
-   Der Radius einer Option
-
-   Erwartet wird bei n Optionen und g Drehs jeweils g/n Treffer.
-   Aus dem Verhältnis "tatsächlich zu erwartet" wird der Radius.
-
-   Die Wurzel dämpft das Wachstum: Eine Option mit viermal so vielen
-   Treffern wie erwartet ragt nur doppelt so weit hinaus, nicht viermal.
-   Ohne diese Dämpfung würde die Form bei vielen Drehs unlesbar entgleisen.
-   Die Rangfolge bleibt trotzdem eindeutig, weil die Wurzel die Reihenfolge
-   nicht verändert.
-   -------------------------------------------------------------------------- */
-
 function radiusFuer(treffer, gesamt, anzahlOptionen) {
   if (gesamt === 0) return KONFIG.radiusRef;
 
@@ -118,10 +74,6 @@ function radiusFuer(treffer, gesamt, anzahlOptionen) {
 
   return Math.max(KONFIG.radiusMin, Math.min(KONFIG.radiusMax, roh));
 }
-
-/* ==========================================================================
-   Rad zeichnen
-   ========================================================================== */
 
 function radZeichnen() {
   svgSegmente.innerHTML = "";
@@ -144,15 +96,11 @@ function radZeichnen() {
     pfad.dataset.id = option.id;
     svgSegmente.appendChild(pfad);
 
-    // Beschriftung
     const mitteWinkel = von + schritt / 2;
     const textRadius = (17 + aussen) / 2;
     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
 
     if (zeigtText) {
-      /* Wie viele Zeichen passen? Die Bogenlänge an dieser Stelle geteilt
-         durch die ungefähre Breite eines Zeichens. Lieber kürzen als
-         unlesbar quetschen. */
       const bogen = (schritt * Math.PI / 180) * textRadius;
       const maxZeichen = Math.max(3, Math.floor(bogen / 7.4));
       const beschriftung = option.name.length > maxZeichen
@@ -162,9 +110,6 @@ function radZeichnen() {
       text.textContent = beschriftung;
       text.setAttribute("font-size", "12.5");
     } else {
-      /* Zu schmal für Text. Unlesbar kleine Schrift wäre schlechter als
-         gar keine, deshalb steht hier nur die Nummer — sie stellt die
-         Verbindung zur Liste daneben her. */
       text.textContent = String(i + 1);
       text.setAttribute("font-size", "11");
     }
@@ -176,8 +121,6 @@ function radZeichnen() {
     text.setAttribute("text-anchor", "middle");
     text.setAttribute("dominant-baseline", "central");
 
-    // Text mitdrehen, damit er im Segment liegt — und umklappen, wenn er
-    // sonst auf dem Kopf stünde.
     const kippen = mitteWinkel > 180;
     const drehWert = kippen ? mitteWinkel + 90 : mitteWinkel - 90;
     text.setAttribute("transform", `rotate(${drehWert.toFixed(2)} ${p.x.toFixed(2)} ${p.y.toFixed(2)})`);
@@ -186,18 +129,6 @@ function radZeichnen() {
   });
 }
 
-/* ==========================================================================
-   Drehen
-
-   Wichtig für die Fairness: Zuerst wird der Gewinner gezogen, DANACH der
-   Winkel berechnet, der ihn unter den Zeiger bringt.
-
-   Der umgekehrte Weg — zu einem zufälligen Winkel drehen und ablesen, wer
-   gewonnen hat — sieht gleichwertig aus, ist es aber nicht: Rundungen und
-   ungleiche Segmentgrenzen verzerren dabei die Wahrscheinlichkeiten still
-   und leise. Hier ist die Ziehung sauber getrennt von der Darstellung.
-   ========================================================================== */
-
 function drehen() {
   if (dreht || optionen.length < 2) return;
   dreht = true;
@@ -205,16 +136,12 @@ function drehen() {
   svgSegmente.classList.remove("dimmen");
   svgSegmente.querySelectorAll(".gewinner").forEach(el => el.classList.remove("gewinner"));
 
-  // 1. Gewinner ziehen — jede Option hat exakt dieselbe Chance
   const index = Math.floor(Math.random() * optionen.length);
   const gewinner = optionen[index];
 
-  // 2. Winkel berechnen, der dieses Segment unter den Zeiger (oben) bringt
   const schritt = 360 / optionen.length;
   const mitteWinkel = index * schritt + schritt / 2;
 
-  // Kleiner Versatz innerhalb des Segments, damit es nicht immer exakt
-  // mittig stoppt. Bleibt bewusst innerhalb der Segmentgrenzen.
   const versatz = (Math.random() - 0.5) * schritt * 0.7;
 
   const zielRest = ((-(mitteWinkel + versatz)) % 360 + 360) % 360;
@@ -225,7 +152,6 @@ function drehen() {
   drehung = ziel;
   svgSegmente.style.transform = `rotate(${drehung}deg)`;
 
-  // 3. Nach der Drehung auswerten
   setTimeout(() => {
     gewinner.treffer++;
     verlauf.unshift({ name: gewinner.name, id: gewinner.id });
@@ -234,7 +160,7 @@ function drehen() {
     elErgebnis.textContent = gewinner.name;
     elErgebnis.classList.remove("leer");
 
-    radZeichnen();  // Segment wächst jetzt nach außen
+    radZeichnen();
     hervorheben(gewinner.id);
     statistikZeichnen();
     verlaufZeichnen();
@@ -252,15 +178,10 @@ function hervorheben(id) {
   svgSegmente.classList.add("dimmen");
 }
 
-/* ==========================================================================
-   Optionen verwalten
-   ========================================================================== */
-
 function optionHinzufuegen(rohName) {
   const name = rohName.trim().replace(/\s+/g, " ");
   if (!name) return false;
 
-  // Doppelte Einträge stillschweigend überspringen
   if (optionen.some(o => o.name.toLowerCase() === name.toLowerCase())) return false;
 
   optionen.push({ id: naechsteId++, name, treffer: 0 });
@@ -294,10 +215,6 @@ function mehrereUebernehmen() {
   }
 }
 
-/* ==========================================================================
-   Anzeige
-   ========================================================================== */
-
 function chipsZeichnen() {
   elChips.innerHTML = "";
 
@@ -328,8 +245,7 @@ function chipsZeichnen() {
     ? "1 Option"
     : `${optionen.length} Optionen`;
 
-  // Mit weniger als zwei Optionen gibt es nichts zu entscheiden
-  elDrehen.disabled = optionen.length < 2 || dreht;
+elDrehen.disabled = optionen.length < 2 || dreht;
 }
 
 function statistikZeichnen() {
@@ -413,15 +329,10 @@ function allesZeichnen() {
   verlaufZeichnen();
 }
 
-/* ==========================================================================
-   Speichern im Browser
-   ========================================================================== */
-
 function speichern() {
   try {
     localStorage.setItem(SPEICHER, JSON.stringify({ optionen, verlauf, naechsteId }));
   } catch {
-    // Privates Fenster o. ä. — die Seite läuft trotzdem, nur ohne Gedächtnis
   }
 }
 
@@ -456,13 +367,9 @@ function zuruecksetzen() {
   elErgebnis.classList.add("leer");
   svgSegmente.classList.remove("dimmen");
 
-  allesZeichnen();   // die Blüte schrumpft sichtbar zurück in den Kreis
+  allesZeichnen();
   speichern();
 }
-
-/* ==========================================================================
-   Start
-   ========================================================================== */
 
 document.getElementById("hinzufuegen").addEventListener("click", einzelnUebernehmen);
 document.getElementById("uebernehmen").addEventListener("click", mehrereUebernehmen);
@@ -483,7 +390,6 @@ feldEinzeln.addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); einzelnUebernehmen(); }
 });
 
-// Beim ersten Besuch ein paar neutrale Beispiele, damit die Seite nicht leer ist
 if (!laden()) {
   ["Option A", "Option B", "Option C", "Option D"].forEach(n => optionHinzufuegen(n));
 }
