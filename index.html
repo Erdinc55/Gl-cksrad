@@ -9,26 +9,19 @@
 <body>
 
 <main class="seite">
-
-  <!-- ---------- Das Rad ---------- -->
   <section class="rad-spalte">
 
     <div class="rad-huelle">
       <svg id="rad" viewBox="0 0 400 400" role="img" aria-labelledby="rad-titel">
         <title id="rad-titel">Glücksrad. Jedes Segment wächst nach außen, je öfter es gezogen wurde.</title>
 
-        <!-- Erwartungskreis: hier läge jedes Segment bei perfekt gleichmäßiger Verteilung -->
         <circle id="erwartungskreis" cx="200" cy="200" r="124"
                 fill="none" stroke-dasharray="3 5" />
-
-        <!-- Die Segmente werden von script.js hier eingesetzt -->
         <g id="segmente"></g>
 
-        <!-- Nabe in der Mitte -->
         <circle cx="200" cy="200" r="17" class="nabe" />
       </svg>
 
-      <!-- Zeiger, sitzt außerhalb des Rades und dreht sich nicht mit -->
       <div class="zeiger" aria-hidden="true"></div>
     </div>
 
@@ -42,8 +35,6 @@
     </p>
 
   </section>
-
-  <!-- ---------- Bedienung und Zahlen ---------- -->
   <section class="seiten-spalte">
 
     <header class="kopf">
@@ -53,7 +44,6 @@
       </p>
     </header>
 
-    <!-- Optionen -->
     <section class="block">
       <h2>Optionen</h2>
 
@@ -80,7 +70,6 @@
       </div>
     </section>
 
-    <!-- Statistik -->
     <section class="block">
       <h2>Auswertung</h2>
 
@@ -105,7 +94,6 @@
       </p>
     </section>
 
-    <!-- Verlauf -->
     <section class="block">
       <h2>Verlauf</h2>
       <ol class="verlauf" id="verlauf"></ol>
